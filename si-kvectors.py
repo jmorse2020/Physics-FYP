@@ -16,7 +16,7 @@ def m2nm(x):
 
 # Parameters
 wavelengths = np.linspace(950, 1130, 10000) # [nm]
-ZDW = 1300                          # Zero delay wavelngth [nm]
+ZDW = 1280                          # Zero delay wavelngth [nm]
 delta = ZDW / 4                     # phase shift
 central_wavelength = 1040           # [nm]
 sigma = 20                          # Bandwidth
