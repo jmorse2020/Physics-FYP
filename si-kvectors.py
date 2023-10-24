@@ -30,6 +30,8 @@ Gaussian = np.exp(- ((wavelengths - central_wavelength)/ sigma)**2)            #
 
 # Plots
 plt.plot(wavelengths, deltaPhi) 
+coefficients = np.polyfit(wavelengths, deltaPhi, 2)
+print(coefficients)
 plt.show()
 plt.plot(wavelengths, np.cos(deltaPhi / 2)**2)
 plt.show()
