@@ -12,7 +12,7 @@ import numpy as np
 import math
 import cmath
 
-def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True):
+def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12]):
     # Construct the Fourier Domain
     N = len(x)                      # Number of data points
     T = (max(x) - min(x)) / N       # Sample spacing
@@ -63,7 +63,7 @@ def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_f
         plt.subplot(2, 1, 2)
         plt.plot(xf, yf, label = "Full fft") # Normalised
         plt.title("FFT")
-        plt.xlim(-1e-12, 1e-12)  # Limit the x-axis to the positive frequencies
+        plt.xlim(fft_x_lim)  # Limit the x-axis to the positive frequencies
         plt.xlabel("Fourier Domain")
         plt.tight_layout()
         plt.subplot(2, 1, 2)
@@ -75,6 +75,7 @@ def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_f
         elif side == "left":
             plt.plot(xf[idx], yf[idx], color='r', label = "Selected region")
         plt.legend()
+        plt.tight_layout()
         plt.show()
 
 
@@ -90,6 +91,8 @@ def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_f
         plt.tight_layout()
         plt.legend()
         plt.show()
+    
+
 
     # Extract phase and unwrap
     final_ys = np.zeros(len(filtered_y))
@@ -105,23 +108,113 @@ def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_f
         plt.title("$\Phi(\omega)$")
         plt.xlabel("$\omega$")
         plt.ylabel("Intensity")
-        plt.plot(x, np.polyval(coefficients, x), color='r', linestyle='--', label="Fit")
+        plt.plot(x, np.polyval(coefficients, x), color='r', linestyle='--', label="Extracted phase")
+        # plt.plot(x, -1.95698265e-05*x**3 +   6.79351537e-02*x**2 -7.89563528e+01*x +3.04750604e+04,label="Original simulated phase", color='orange', linestyle = '-.')
+        
         plt.legend()
         # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
-    return coefficients
+    return [x, coefficients]
     
+def ObtainBetaFromPhi(phi, length):
+    return lambda omega: phi(omega) / length
 
-# # Read in the data from a file. 
+def dOmega(beta):
+    from sympy import diff
+    import sympy as sp
+    #print(beta)
+    x = sp.symbols('x')
+    expr = beta(x)
+    #print("HERE")
+    beta_1 = diff(expr, x)
+    #print(beta_1) 
+    return lambda omegas: [beta_1.subs(x, omega) for omega in omegas]
+    
+def V_g(beta): # In omega
+    from sympy import diff
+    import sympy as sp
+    #print(beta)
+    x = sp.symbols('x')
+    expr = beta(x)
+    #print("HERE")
+    beta_1 = diff(expr, x)
+    #print(beta_1) 
+    return lambda omegas: [1 / beta_1.subs(x, omega) for omega in omegas]
+
+
+def dnOmega(beta, order=2):
+    from sympy import diff
+    import sympy as sp
+    #print(beta)
+    x = sp.symbols('x')
+    expr = beta(x)
+    #print("HERE")
+    beta_1 = diff(expr, x, order=order)
+    #print(beta_1) 
+    return lambda omegas: [beta_1.subs(x, omega) for omega in omegas]
+
+def Beta_2(beta):
+    from sympy import diff
+    import sympy as sp
+    x = sp.symbols('x')
+    expr = beta(x)
+    #print("HERE")
+    return lambda ls: [l**3 / (2 * np.pi**2 * (3e17)**2) * diff(expr, x, order=1).subs(x, l) + l**4/(2 * np.pi * 3e17)**2 * diff(expr, x, order=2).subs(x,l) for l in ls]
+
+def Big_D(beta):
+    pass
+
+def Obtain_n(beta):
+    return lambda omega: beta(omega) * 3e8 / omega
+
+# Read in the data from a file. 
 # data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/simulation-data-1.csv")
 # x = data["wavelengths[nm]"]
 # y = data["amplitude"]
-# coefficients = DeltaPhiRetrievalProcedure(x, y)
+# coefficients = DeltaPhiRetrievalProcedure(x, y, 3, keep_min_freq=0.001, fft_x_lim = [-0.5, 0.5])
 
 
-data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/b5-spectral-phase-in-omega.csv")
-x = data["angularFrequency[G rad/s]"] # data["wavelengths[nm]"]
-y = data["amplitude"] #data["amplitude"]
-idx = np.array(np.where(x > 1.5e15)).flatten()
+data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/b6-spectral-phase-in-omega.csv")
+x = data["wavelengths[nm]"] # data["angularFrequency[G rad/s]"] #
+y = data["amplitude_lambda"] #data["amplitude"]
+
+idx = np.array(np.where(x < 1350)).flatten()
 x = x[idx]
 y= y[idx]
-coefficients = DeltaPhiRetrievalProcedure(x, y, keep_min_freq=0.01e-12, keep_max_freq=-1, side="right", order=3)
+# keep_min_frequence_omega = 0.05e-12
+[frequencies, coefficients] = DeltaPhiRetrievalProcedure(x, y, keep_min_freq=0.01, keep_max_freq=-1, side="right", order=3, show_plots = True, fft_x_lim = [-0.5, 0.5])
+import sympy as sp
+phi = lambda omega: np.poly1d(coefficients)(omega)
+plt.show()
+
+
+
+l_b6 = 680*1e-3 # m
+beta = ObtainBetaFromPhi(phi, l_b6)
+plt.plot(frequencies, beta(frequencies), label="beta")
+plt.title("Beta")
+plt.show()
+#plt.plot(frequencies, beta(frequencies))
+#print(beta)
+plt.plot(frequencies, Obtain_n(beta)(frequencies), label="n")
+plt.legend()
+plt.title("Refractive index (omega)")
+plt.show()
+v_g = V_g(beta)
+print("From here")
+# print(dnOmega(beta)(frequencies))
+print("!!!")
+print(v_g)
+plt.plot(frequencies, v_g(frequencies), label="v_g")
+plt.title("Group velocity (1/beta_1)")
+plt.show()
+print(frequencies)
+plt.plot(frequencies, dnOmega(beta)(frequencies), label="GVD")
+plt.title("GVD")
+plt.legend()
+plt.show()
+plt.plot(frequencies, Beta_2(beta)(frequencies), label = "Beta2")
+plt.title("Beta_2 in wavelength")
+plt.legend()
+plt.show()
+#n = beta/2*np.pi
+
