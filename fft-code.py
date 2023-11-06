@@ -12,7 +12,9 @@ import numpy as np
 import math
 import cmath
 
-def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12]):
+c = 3e17                # [nm/s] (if working with frequency this should be cahnged back to 3e8 m/s)
+
+def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = False, fft_x_lim = [-1e-12, 1e-12]):
     # Construct the Fourier Domain
     N = len(x)                      # Number of data points
     T = (max(x) - min(x)) / N       # Sample spacing
@@ -115,10 +117,12 @@ def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_f
         # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
     return [x, coefficients]
     
+
+# GIVEN x IS IN WAVELENGTHS
 def ObtainBetaFromPhi(phi, length):
-    return lambda omega: phi(omega) / length
+    return lambda var: phi(var) / length
 
-def dOmega(beta):
+def dOmega(beta, function_of):
     from sympy import diff
     import sympy as sp
     #print(beta)
@@ -127,20 +131,66 @@ def dOmega(beta):
     #print("HERE")
     beta_1 = diff(expr, x)
     #print(beta_1) 
-    return lambda omegas: [beta_1.subs(x, omega) for omega in omegas]
+    return lambda vars: [beta_1.subs(x, var) for var in vars]
     
-def V_g(beta): # In omega
+def V_g(beta):                                      # Input beta as a function of wavelength
     from sympy import diff
-    import sympy as sp
-    #print(beta)
+    import sympy as sp    
     x = sp.symbols('x')
     expr = beta(x)
-    #print("HERE")
-    beta_1 = diff(expr, x)
-    #print(beta_1) 
-    return lambda omegas: [1 / beta_1.subs(x, omega) for omega in omegas]
+    beta_1 = diff(expr, x)                          # Perform differentiation with respect to wavelength
+    dLambda_dOmega = - x**2 / (2 * np.pi * c)
+    beta_1 = beta_1 * dLambda_dOmega                # Multiply by the chain to make the diff. wrt omega
+    return lambda vars: [1 / beta_1.subs(x, var) for var in vars]
+
+def DBeta_dOmega(beta):
+    from sympy import diff
+    import sympy as sp 
+    x = sp.symbols('x')
+    expr = beta(x)
+    beta_1 = diff(expr, x)                          # Perform differentiation with respect to wavelength
+    dLambda_dOmega = - x**2 / (2 * np.pi * c)
+    beta_1 = beta_1 * dLambda_dOmega                # Multiply by the chain to make the diff. wrt omega
+    return lambda var: beta_1.subs(x, var)
+
+def GVD(beta):                          # Input beta as a function on wavelength
+    # Need to compute first and second derivative of beta wrt lambda:
+    from sympy import diff
+    import sympy as sp    
+    x = sp.symbols('x')
+    expr = beta(x)
+    dBeta_dLambda = diff(expr, x)              # First derivative wrt lambda
+    d2Beta_dLambda2 = diff(expr, x, 2)           # Second derivative wrt lambda
+
+    # Also need first and second derivative of lambda wrt omega:
+    dLambda_dOmega = - x**2 / (2 * np.pi * c)
+    d2Lambda_dOmega2 = 2 * x**3 / (2 * np.pi * c)**2
+
+    # The final expression d2Beta / dOmega2 is
+    d2Beta_dOmega2 = d2Beta_dLambda2 * dLambda_dOmega**2 + dBeta_dLambda * d2Lambda_dOmega2
+    return lambda vars: [d2Beta_dOmega2.subs(x, var) for var in vars]
+
+def Big_D(beta): # Input beta as a function of wavelength
+    from sympy import diff
+    import sympy as sp 
+    # Need to compute first and second derivative of beta wrt lambda:
+    x = sp.symbols('x')
+    expr = beta(x)
+    beta_1 = diff(expr, x)              # First derivative wrt lambda
+    beta_2 = diff(expr, x, 2)           # Second derivative wrt lambda
+
+    # Need to compute dLambda_dOmega and d2Lambda_dLambdadOmega:
+    dLambda_dOmega = - x**2 / (2 * np.pi * c)
+    d2Lambda_dLambdadOmega = - x / (np.pi * c)
+
+    D = d2Lambda_dLambdadOmega * beta_1 + dLambda_dOmega * beta_2
+    return lambda vars: [D.subs(x, var) for var in vars]
+
+def Obtain_n(beta):
+    return lambda vars: [beta(var) * c / var for var in vars]
 
 
+# I think all functions below here to *** are wrong
 def dnOmega(beta, order=2):
     from sympy import diff
     import sympy as sp
@@ -150,7 +200,7 @@ def dnOmega(beta, order=2):
     #print("HERE")
     beta_1 = diff(expr, x, order=order)
     #print(beta_1) 
-    return lambda omegas: [beta_1.subs(x, omega) for omega in omegas]
+    return lambda vars: [beta_1.subs(x, var) for var in vars]
 
 def Beta_2(beta):
     from sympy import diff
@@ -160,11 +210,7 @@ def Beta_2(beta):
     #print("HERE")
     return lambda ls: [l**3 / (2 * np.pi**2 * (3e17)**2) * diff(expr, x, order=1).subs(x, l) + l**4/(2 * np.pi * 3e17)**2 * diff(expr, x, order=2).subs(x,l) for l in ls]
 
-def Big_D(beta):
-    pass
-
-def Obtain_n(beta):
-    return lambda omega: beta(omega) * 3e8 / omega
+# ***
 
 # Read in the data from a file. 
 # data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/simulation-data-1.csv")
@@ -173,48 +219,76 @@ def Obtain_n(beta):
 # coefficients = DeltaPhiRetrievalProcedure(x, y, 3, keep_min_freq=0.001, fft_x_lim = [-0.5, 0.5])
 
 
-data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/b6-spectral-phase-in-omega.csv")
-x = data["wavelengths[nm]"] # data["angularFrequency[G rad/s]"] #
+data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/b6-spectral-phase-in-wavelengths.csv")
+x = data["wavelengths"] # data["angularFrequency[G rad/s]"] #
 y = data["amplitude_lambda"] #data["amplitude"]
 
 idx = np.array(np.where(x < 1350)).flatten()
 x = x[idx]
 y= y[idx]
 # keep_min_frequence_omega = 0.05e-12
-[frequencies, coefficients] = DeltaPhiRetrievalProcedure(x, y, keep_min_freq=0.01, keep_max_freq=-1, side="right", order=3, show_plots = True, fft_x_lim = [-0.5, 0.5])
+[x, coefficients] = DeltaPhiRetrievalProcedure(x, y, keep_min_freq=0.01, keep_max_freq=-1, side="right", order=3, fft_x_lim = [-0.5, 0.5])
 import sympy as sp
-phi = lambda omega: np.poly1d(coefficients)(omega)
-plt.show()
+phi = lambda var: np.poly1d(coefficients)(var)
 
 
 
 l_b6 = 680*1e-3 # m
 beta = ObtainBetaFromPhi(phi, l_b6)
-plt.plot(frequencies, beta(frequencies), label="beta")
-plt.title("Beta")
-plt.show()
-#plt.plot(frequencies, beta(frequencies))
-#print(beta)
-plt.plot(frequencies, Obtain_n(beta)(frequencies), label="n")
-plt.legend()
-plt.title("Refractive index (omega)")
-plt.show()
 v_g = V_g(beta)
-print("From here")
-# print(dnOmega(beta)(frequencies))
-print("!!!")
-print(v_g)
-plt.plot(frequencies, v_g(frequencies), label="v_g")
-plt.title("Group velocity (1/beta_1)")
-plt.show()
-print(frequencies)
-plt.plot(frequencies, dnOmega(beta)(frequencies), label="GVD")
+gvd = GVD(beta)
+D = Big_D(beta)
+
+""" Plots """
+plt.figure(figsize=(12, 8))
+xlabel = "Wavelength, $\lambda$ [nm]"
+
+# Plot 1: Phi
+plt.subplot(2, 3, 1)
+plt.plot(x, phi(x))
+plt.title("Phi")
+plt.xlabel(xlabel)
+
+# Plot 2: Beta
+plt.subplot(2, 3, 2)
+plt.plot(x, beta(x), label="beta")
+plt.title("Beta")
+plt.xlabel(xlabel)
+
+# Plot 3: n (Refractive index)
+plt.subplot(2, 3, 3)
+plt.plot(x, Obtain_n(beta)(x), label="n")
+plt.legend()
+plt.title("Refractive index")
+plt.xlabel(xlabel)
+
+# Plot 4: v_g (Group velocity)
+plt.subplot(2, 3, 4)
+plt.plot(x, v_g(x), label="v_g")
+plt.title("Group velocity")
+plt.xlabel(xlabel)
+
+# Plot 5: GVD 
+plt.subplot(2, 3, 5)
+plt.plot(x, gvd(x), label="GVD")
 plt.title("GVD")
 plt.legend()
-plt.show()
-plt.plot(frequencies, Beta_2(beta)(frequencies), label = "Beta2")
-plt.title("Beta_2 in wavelength")
+plt.xlabel(xlabel)
+
+# Plot 6: D
+plt.subplot(2, 3, 6)
+plt.plot(x, D(x), label="D")
+plt.title("D")
 plt.legend()
+plt.xlabel(xlabel)
+
+# Show Plots
+plt.tight_layout()
 plt.show()
+
+# plt.plot(x, Beta_2(beta)(x), label = "Beta2")
+# plt.title("Beta_2 in wavelength")
+# plt.legend()
+# plt.show()
 #n = beta/2*np.pi
 
