@@ -14,7 +14,7 @@ import cmath
 
 c = 3e17                # [nm/s] (if working with frequency this should be cahnged back to 3e8 m/s)
 
-def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = False, fft_x_lim = [-1e-12, 1e-12]):
+def DeltaPhiRetrievalProcedure(x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12]):
     # Construct the Fourier Domain
     N = len(x)                      # Number of data points
     T = (max(x) - min(x)) / N       # Sample spacing
@@ -218,16 +218,16 @@ def Beta_2(beta):
 # y = data["amplitude"]
 # coefficients = DeltaPhiRetrievalProcedure(x, y, 3, keep_min_freq=0.001, fft_x_lim = [-0.5, 0.5])
 
+x_variable = "frequency"
+data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/b6-spectral-phase-in-frequency.csv")
+x = data[x_variable] # data["angularFrequency[G rad/s]"] #
+y = data["amplitude"] #data["amplitude"]
 
-data = pd.read_csv("/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/b6-spectral-phase-in-wavelengths.csv")
-x = data["wavelengths"] # data["angularFrequency[G rad/s]"] #
-y = data["amplitude_lambda"] #data["amplitude"]
-
-idx = np.array(np.where(x < 1350)).flatten()
+idx = np.array(np.where(x > 1.24e15)).flatten() # x < 1538
 x = x[idx]
 y= y[idx]
 # keep_min_frequence_omega = 0.05e-12
-[x, coefficients] = DeltaPhiRetrievalProcedure(x, y, keep_min_freq=0.01, keep_max_freq=-1, side="right", order=3, fft_x_lim = [-0.5, 0.5])
+[x, coefficients] = DeltaPhiRetrievalProcedure(x, y, keep_min_freq=0.01e-12, keep_max_freq=-1, side="right", order=4, fft_x_lim = [-5e-12, 5e-12]) # keep_min_freq=0.01 fft_x_lim = [-0.5, 0.5]
 import sympy as sp
 phi = lambda var: np.poly1d(coefficients)(var)
 
@@ -241,7 +241,14 @@ D = Big_D(beta)
 
 """ Plots """
 plt.figure(figsize=(12, 8))
-xlabel = "Wavelength, $\lambda$ [nm]"
+if x_variable.lower().__contains__("wavelengths"):
+    xlabel = "Wavelength, $\lambda$ [nm]"
+elif x_variable.lower().__contains__("frequency" or "omega"):
+    xlabel = "Frequency, $\omega$ [rad s$^{-1}$]"
+else:
+    xlabel = ""
+    print("No xlabel as x_variable is not of recognised form.")
+
 
 # Plot 1: Phi
 plt.subplot(2, 3, 1)
@@ -270,7 +277,7 @@ plt.xlabel(xlabel)
 
 # Plot 5: GVD 
 plt.subplot(2, 3, 5)
-plt.plot(x, gvd(x), label="GVD")
+plt.plot(x, -1 * np.array(gvd(x)), label="GVD")
 plt.title("GVD")
 plt.legend()
 plt.xlabel(xlabel)

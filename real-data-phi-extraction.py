@@ -19,7 +19,7 @@ c = 3e17                            # Speed of light in nm/s
 data_set = "b6"
 if ~isinstance(data_set, str):
     TypeError("'data_set' is not a string") 
-x_axis_variable = "wavelengths"      # Options: "wavelength" or "frequency" or "omega"
+x_axis_variable = "frequency"      # Options: "wavelength" or "frequency" or "omega"
 custom_xlim = None # [1200, 1500]
 custom_ylim = [-1.5, 1.5]
 
@@ -100,4 +100,4 @@ plt.show()
 # plt.plot(fringes_x, np.abs(envelope))
 # plt.show()
 file_path = "/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/Sample-Data-1/" + data_set + "-spectral-phase-in-" + x_axis_variable + ".csv"
-DH.write_csv(file_path, [fringes_x, spectralPhase], [x_axis_variable, "amplitude_lambda"], preamble = [])
+DH.write_csv(file_path, [fringes_x, spectralPhase], [x_axis_variable, "amplitude"], preamble = [])
