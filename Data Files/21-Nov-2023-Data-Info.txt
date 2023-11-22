@@ -1,0 +1,19 @@
+Data information.
+Today we had a 57.5cm fibre length (measured with metre rule). it is pcf and we had it going through the original dispersion setup. 
+
+File_name, info
+
+Scan-1-poi-vs-stage-pos-LHS: 
+We moved the stage (air delay in ref arm) and tracked the movement of the poi. This was for the fringe to the LHS of the 1064nm pump wavelength.
+
+{spectral-interference, fibre-arm, reference-arm}-550-1700nmn-1:
+ This data is a scan with both poi's in the spectrum. Not useful for measuring dispersion.
+
+
+no-poi-{spectral-interference, fibre-arm, reference-arm}-550-1700nmn-1:
+ This data is with the poi on the RHS of the pump laser wavelength (1064nm) outside the spectrum, here the stage position was 15.2458mm. Use for dispersion calculation 1.
+
+
+no-poi-{spectral-interference, fibre-arm, reference-arm}-550-1700nmn-2:
+ This data is with the poi on the RHS of the pump laser wavelength (1064nm) outside the spectrum, here the stage position was 15.2635mm. Use for dispersion calculation 2.
+

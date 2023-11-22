@@ -187,7 +187,7 @@ def Big_D(beta): # Input beta as a function of wavelength
     return lambda vars: [D.subs(x, var) for var in vars]
 
 def Obtain_n(beta):
-    return lambda vars: [beta(var) * c / var for var in vars]
+    return lambda vars: [beta(var) * var / (2 * np.pi) for var in vars]
 
 
 # I think all functions below here to *** are wrong

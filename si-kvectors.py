@@ -34,9 +34,10 @@ coefficients = np.polyfit(wavelengths, deltaPhi, 3)
 plt.plot(wavelengths, np.polyval(coefficients, wavelengths), color='r', linestyle='--', label="Fit")
 print(coefficients)
 plt.show()
-plt.plot(wavelengths, np.cos(deltaPhi / 2)**2)
-plt.show()
+# plt.plot(wavelengths, np.cos(deltaPhi / 2)**2)
+
 plt.plot(wavelengths, Gaussian * np.cos(deltaPhi / 2)**2)
+plt.show()
 
 file_path = "/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/simulation-data-1.csv"
 DH.write_csv(file_path, [wavelengths, np.cos(deltaPhi /2)**2], ["wavelengths[nm]", "amplitude"], preamble = [])

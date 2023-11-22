@@ -31,7 +31,7 @@ class RefractiveIndex:
 
         Parameters
         -------
-        variable
+        variable = 
         parameter = "wavelength" [nm] or "omega" [rad Hz]
          
     
@@ -39,8 +39,6 @@ class RefractiveIndex:
         -------
         value for refractive index of fused silica at wavelength.
         """
-        print("In the function")
-        print(parameter.lower())
         if parameter.lower() not in ["wavelength", "omega"]:
             raise NotImplementedError("Error: Input parameter needs to match 'wavelength' or 'omega'")
         if parameter.lower() == "omega":
@@ -54,7 +52,3 @@ class RefractiveIndex:
     
     def n_group(n, wavelength, h=1e-6):
         return n(wavelength) - wavelength * RefractiveIndex._deriv(n, wavelength, h)
-    
-# import matplotlib.pyplot as plt
-# import numpy as np
-# lambdas = np.linspace(1)
