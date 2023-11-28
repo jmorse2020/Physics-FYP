@@ -12,7 +12,12 @@ class SI_Functions:
     '''
     def __init__(self, c = 3e17): # Default is in nm/s, assuming that the class is used with wavelengths in nm.
         self.c = c
-    def DeltaPhiRetrievalProcedure(self, x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12]):
+
+    def _groundAndNormalise(self, y_data):
+        y_data = y_data - min(y_data)
+        return (y_data - min(y_data))/ max(y_data - min(y_data))
+
+    def DeltaPhiRetrievalProcedure(self, x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12], fft_y_lim = None, hanning = False, normalise = False):
         '''
         Retrieves the spectral phase difference from spectral interference fringes, with flat oscillations, approx. between -1 and +1.
          
@@ -27,6 +32,8 @@ class SI_Functions:
         side ("left" or "right" or "both"): Determines the side of the fourier transform to analyse.
         show_plots (bool): Show or hide plots.
         fft_x_lim ([float, float]): The limits of the fourier transform if plots are shown. Can be None for auto-limits. 
+        fft_y_lim ([float, float] or None): The limits of the fourier transform if plots are shown. Can be None for auto-limits.
+        hanning (bool): Applies a hanning window to mitigate effects of finite edges in data.
          
 
         Returns
@@ -39,6 +46,14 @@ class SI_Functions:
         xf = np.fft.fftfreq(N, T)       # Create the Fourier domain
         xf = np.fft.fftshift(xf)        # Shift the domain to be centered around 0
 
+        if normalise == True:
+            # Normalise and ground the data:
+            y = self._groundAndNormalise(y)
+
+        if hanning == True:
+            # Apply Hanning window to compensate for end discontinuity
+            window = np.hanning(len(y))
+            y = y * window
         # Perform the FFT
         yf = np.fft.fft(y)
         yf = np.fft.fftshift(yf)
@@ -85,9 +100,14 @@ class SI_Functions:
             plt.title("FFT")
             if fft_x_lim != None:
                 try:
-                    plt.xlim(fft_x_lim)  # Limit the x-axis to the positive frequencies
+                    plt.xlim(fft_x_lim)  # Limit the x-axis
                 except:
                     print("Not valid fft_x_lim.")
+            if fft_y_lim != None:
+                try:
+                    plt.ylim(fft_y_lim)  # Limit the y-axis
+                except:
+                    print("Not valid fft_y_lim.")
             plt.xlabel("Fourier Domain")
             plt.tight_layout()
             plt.subplot(2, 1, 2)
@@ -122,8 +142,12 @@ class SI_Functions:
         final_ys = np.zeros(len(filtered_y))
         for i in range(len(filtered_y)):
             final_ys[i] = cmath.phase((filtered_y[i]))
-        final_ys = np.unwrap(final_ys)
-        
+        print(final_ys)
+        print("MIN: ", min(final_ys))
+        print("MAX: ", max(final_ys))
+        # final_ys = np.unwrap(final_ys)
+        print("Final ys:")
+        print(final_ys)
         # Perform the fit
         coefficients = np.polyfit(x, final_ys, order)
 
@@ -136,6 +160,7 @@ class SI_Functions:
             # plt.plot(x, -1.95698265e-05*x**3 +   6.79351537e-02*x**2 -7.89563528e+01*x +3.04750604e+04,label="Original simulated phase", color='orange', linestyle = '-.')
             
             plt.legend()
+            plt.show()
             # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
         return [x, coefficients]
     

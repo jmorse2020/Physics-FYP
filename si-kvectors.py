@@ -39,6 +39,13 @@ plt.show()
 plt.plot(wavelengths, Gaussian * np.cos(deltaPhi / 2)**2)
 plt.show()
 
+phi = lambda var: np.poly1d(coefficients)(var)
+import Functions as f
+sif = f.SI_Functions()
+beta = sif.ObtainBetaFromPhi(phi, L_f)
+n = sif.Obtain_n(beta)
+plt.plot(wavelengths, n(wavelengths))
+plt.show()
 file_path = "/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/simulation-data-1.csv"
 DH.write_csv(file_path, [wavelengths, np.cos(deltaPhi /2)**2], ["wavelengths[nm]", "amplitude"], preamble = [])
 # D2 = (2 * np.pi / ZDW**2) * (2 * L_air / ZDW + 2 * L_f * (RI.n_fs(ZDW) / ZDW - RI._deriv(RI.n_fs, ZDW)))
