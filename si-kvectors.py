@@ -29,23 +29,30 @@ deltaPhi = 2 * np.pi / wavelengths * (L_air  + L_f * RI.n_fs(wavelengths))     #
 Gaussian = np.exp(- ((wavelengths - central_wavelength)/ sigma)**2)            # Modelled as a Gaussian spectrum
 
 # Plots
+
 plt.plot(wavelengths, deltaPhi) 
 coefficients = np.polyfit(wavelengths, deltaPhi, 3)
+print(coefficients[-1])
+# coefficients[-1] = deltaPhi[0]
 plt.plot(wavelengths, np.polyval(coefficients, wavelengths), color='r', linestyle='--', label="Fit")
-print(coefficients)
+print("Coefficients are: ",coefficients)
 plt.show()
 # plt.plot(wavelengths, np.cos(deltaPhi / 2)**2)
 
 plt.plot(wavelengths, Gaussian * np.cos(deltaPhi / 2)**2)
 plt.show()
-
 phi = lambda var: np.poly1d(coefficients)(var)
+print("phi 1 = ", phi([1]))
 import Functions as f
 sif = f.SI_Functions()
 beta = sif.ObtainBetaFromPhi(phi, L_f)
+plt.plot(wavelengths, phi(wavelengths))
+plt.title("Extracted phi")
+plt.show()
 n = sif.Obtain_n(beta)
 plt.plot(wavelengths, n(wavelengths))
 plt.show()
+
 file_path = "/Users/jackmorse/Documents/University/Year 4/Semester 1/FYP/Physics-FYP/simulation-data-1.csv"
 DH.write_csv(file_path, [wavelengths, np.cos(deltaPhi /2)**2], ["wavelengths[nm]", "amplitude"], preamble = [])
 # D2 = (2 * np.pi / ZDW**2) * (2 * L_air / ZDW + 2 * L_f * (RI.n_fs(ZDW) / ZDW - RI._deriv(RI.n_fs, ZDW)))

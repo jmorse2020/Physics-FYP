@@ -87,7 +87,12 @@ class SI_Functions:
         filtered_fourier_data = yf * box_filter
 
         # Perform the inverse FFT
-        filtered_y = np.fft.ifft(np.fft.ifftshift(filtered_fourier_data))
+        shifted_filtered_fourier_data = np.fft.ifftshift(filtered_fourier_data)
+        index_max_before_shift = np.argmax(np.abs(filtered_fourier_data))                               # Find the index of the maximum value before and after the shift
+        index_max_after_shift = np.argmax(np.abs(shifted_filtered_fourier_data))
+        shift_amount = index_max_after_shift - index_max_before_shift                                   # Calculate the shift amount
+        print("Shift amount: ", shift_amount)
+        filtered_y = np.fft.ifft(shifted_filtered_fourier_data)
 
         # Plot the FFT results
         if show_plots == True:
@@ -142,12 +147,16 @@ class SI_Functions:
         final_ys = np.zeros(len(filtered_y))
         for i in range(len(filtered_y)):
             final_ys[i] = cmath.phase((filtered_y[i]))
+
+        final_ys = np.unwrap(final_ys)
+        # final_ys = final_ys - final_ys[0]
         print(final_ys)
         print("MIN: ", min(final_ys))
         print("MAX: ", max(final_ys))
-        # final_ys = np.unwrap(final_ys)
+       
         print("Final ys:")
         print(final_ys)
+        
         # Perform the fit
         coefficients = np.polyfit(x, final_ys, order)
 
