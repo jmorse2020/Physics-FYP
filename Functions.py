@@ -5,7 +5,7 @@ from sympy import diff
 import sympy as sp
 import RefractiveIndexClass as RI
 
-class SI_Functions_Lambda:
+class SI_Functions_Lambda():
     '''
     This class contains functions for spectral interference project work.
     The wavelengths are assumed to be in nm (as c defaults to 3e17 nm/s), unless you manually specify c in the init to be c = 3e8 m/s.
@@ -171,7 +171,7 @@ class SI_Functions_Lambda:
             plt.legend()
             plt.show()
             # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
-        return [x, coefficients]
+        return [final_ys, coefficients]
     
     def MakeDeltaPhiLambda(coefficients):
         '''
@@ -378,7 +378,7 @@ class SpectralInterferometry:
         return [wavelengths, Gaussian * np.cos(deltaPhi / 2)**2, delta_phi_coefficients]
     
     
-class SI_Functions_Omega:
+class SI_Functions_Omega():
     '''
     This class contains functions for spectral interference project work.
     The omegas are assumed to be in nm (as c defaults to 3e17 nm/s), unless you manually specify c in the init to be c = 3e8 m/s.
@@ -394,11 +394,19 @@ class SI_Functions_Omega:
         y_interp = linear_interp(x_grid) 
         return [x_grid, y_interp] 
     
+    def ConvertOmegaSpectraToWavelength(self, omegas, intensity):
+        import scipy.interpolate as interpolate
+        wavelengths = 2 * np.pi * self.c / omegas                                          # Frequency in rad/s
+        x_grid = np.linspace(min(wavelengths), max(wavelengths), len(wavelengths))                    # Adjust the number of points as needed        
+        linear_interp = interpolate.interp1d(wavelengths, intensity, kind='linear')       # Perform linear interpolation
+        y_interp = linear_interp(x_grid) 
+        return [x_grid, y_interp] 
+    
     def _groundAndNormalise(self, y_data):
         y_data = y_data - min(y_data)
         return (y_data - min(y_data))/ max(y_data - min(y_data))
 
-    def DeltaPhiRetrievalProcedure(self, x, y, tau, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12], fft_y_lim = None, hanning = False, normalise = False):
+    def DeltaPhiRetrievalProcedure(self, x, y, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12], fft_y_lim = None, hanning = False, normalise = False):
         '''
         Retrieves the spectral phase difference from spectral interference fringes, with flat oscillations, approx. between -1 and +1.
          
@@ -407,7 +415,6 @@ class SI_Functions_Omega:
         -------
         x ([float]): Array of the omegas.
         y ([float]): Intensity of the SI.
-        tau ([float]): Delay in seconds
         order (int): Order to approximate the phase.
         keep_min_freq (float): The minimum frequency in the fourier domain to keep. Setting to -1 takes the first array entry.
         keep_max_freq (float): The maximum frequency in the foutier domain to keep. Setting to -1 takes the last array entry.
@@ -536,9 +543,6 @@ class SI_Functions_Omega:
         print("MIN: ", min(final_ys))
         print("MAX: ", max(final_ys))
        
-        # Subtract phase from air
-        final_ys = final_ys - x*tau
-       
         print("Final ys:")
         print(final_ys)
         
@@ -556,7 +560,7 @@ class SI_Functions_Omega:
             plt.legend()
             plt.show()
             # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
-        return [x, coefficients]
+        return [final_ys, coefficients]
     
     def MakeDeltaPhiLambda(coefficients):
         '''
@@ -672,14 +676,10 @@ class SI_Functions_Omega:
         -------
         D as a lambda function.
         '''
-        # Need to compute first and second derivative of beta wrt omega:
+        # Need to compute second derivative of beta wrt omega:
         x = sp.symbols('x')
         expr = beta(x)
         beta_2 = diff(expr, x, 2)           # Second derivative wrt omega
-
-        # Need to compute dLambda_dOmega and d2Lambda_dLambdadOmega:
-        #dLambda_dOmega = - x**2 / (2 * np.pi * self.c)
-        #d2Lambda_dLambdadOmega = - x / (np.pi * self.c)
 
         D = - (x**2) / (2 * np.pi * self.c) * beta_2
         return lambda vars: [D.subs(x, var) for var in vars]
