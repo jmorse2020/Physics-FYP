@@ -5,7 +5,7 @@ from sympy import diff
 import sympy as sp
 import RefractiveIndexClass as RI
 
-class SI_Functions:
+class SI_Functions_Lambda:
     '''
     This class contains functions for spectral interference project work.
     The wavelengths are assumed to be in nm (as c defaults to 3e17 nm/s), unless you manually specify c in the init to be c = 3e8 m/s.
@@ -24,7 +24,7 @@ class SI_Functions:
 
         Parameters
         -------
-        x ([float]): Array of the wavelengths or frequencies.
+        x ([float]): Array of the wavelengths.
         y ([float]): Intensity of the SI.
         order (int): Order to approximate the phase.
         keep_min_freq (float): The minimum frequency in the fourier domain to keep. Setting to -1 takes the first array entry.
@@ -191,6 +191,7 @@ class SI_Functions:
         return lambda var: np.poly1d(coefficients)(var)
     
     # GIVEN x IS IN WAVELENGTHS
+    
     def ObtainBetaFromPhi(self, phi, length):
         '''
         Obtains beta as a function of wavelength from delta phi.
@@ -375,3 +376,318 @@ class SpectralInterferometry:
             plt.show()
 
         return [wavelengths, Gaussian * np.cos(deltaPhi / 2)**2, delta_phi_coefficients]
+    
+    
+class SI_Functions_Omega:
+    '''
+    This class contains functions for spectral interference project work.
+    The omegas are assumed to be in nm (as c defaults to 3e17 nm/s), unless you manually specify c in the init to be c = 3e8 m/s.
+    '''
+    def __init__(self, c = 3e17): # Default is in nm/s, assuming that the class is used with wavelengths in nm.
+        self.c = c
+
+    def _groundAndNormalise(self, y_data):
+        y_data = y_data - min(y_data)
+        return (y_data - min(y_data))/ max(y_data - min(y_data))
+
+    def DeltaPhiRetrievalProcedure(self, x, y, tau, order = 2, keep_min_freq = 0.08, keep_max_freq = -1, side = "left", show_plots = True, fft_x_lim = [-1e-12, 1e-12], fft_y_lim = None, hanning = False, normalise = False):
+        '''
+        Retrieves the spectral phase difference from spectral interference fringes, with flat oscillations, approx. between -1 and +1.
+         
+
+        Parameters
+        -------
+        x ([float]): Array of the omegas.
+        y ([float]): Intensity of the SI.
+        tau ([float]): Delay in seconds
+        order (int): Order to approximate the phase.
+        keep_min_freq (float): The minimum frequency in the fourier domain to keep. Setting to -1 takes the first array entry.
+        keep_max_freq (float): The maximum frequency in the foutier domain to keep. Setting to -1 takes the last array entry.
+        side ("left" or "right" or "both"): Determines the side of the fourier transform to analyse.
+        show_plots (bool): Show or hide plots.
+        fft_x_lim ([float, float]): The limits of the fourier transform if plots are shown. Can be None for auto-limits. 
+        fft_y_lim ([float, float] or None): The limits of the fourier transform if plots are shown. Can be None for auto-limits.
+        hanning (bool): Applies a hanning window to mitigate effects of finite edges in data.
+         
+
+        Returns
+        -------
+        [x, coefficients].
+        '''
+        # Construct the Fourier Domain
+        N = len(x)                      # Number of data points
+        T = (max(x) - min(x)) / N       # Sample spacing
+        xf = np.fft.fftfreq(N, T)       # Create the Fourier domain
+        xf = np.fft.fftshift(xf)        # Shift the domain to be centered around 0
+
+        if normalise == True:
+            # Normalise and ground the data:
+            y = self._groundAndNormalise(y)
+
+        if hanning == True:
+            # Apply Hanning window to compensate for end discontinuity
+            window = np.hanning(len(y))
+            y = y * window
+        # Perform the FFT
+        yf = np.fft.fft(y)
+        yf = np.fft.fftshift(yf)
+
+        # Filter the FFT to keep only the desired frequencies
+        if side == "both":
+            if keep_max_freq == -1: # Go to max
+                idx_left = np.array(np.where(xf < -keep_min_freq)).flatten()                                # left of DC
+                idx_right = np.array(np.where(keep_min_freq < xf)).flatten()                                # right of DC
+            else:
+                idx_left = np.array(np.where((-keep_max_freq < xf) & (xf < -keep_min_freq))).flatten()      # left of DC
+                idx_right = np.array(np.where((keep_min_freq < xf) & (xf < keep_max_freq))).flatten()       # right of DC
+            idx = (np.concatenate((idx_left, idx_right)))
+        elif side == "right":
+            if keep_max_freq == -1: # Go to max
+                idx = np.array(np.where(keep_min_freq < xf)).flatten()                                # right of DC
+            else:
+                idx = np.array(np.where((keep_min_freq < xf) & (xf < keep_max_freq))).flatten() 
+        elif side == "left":
+            if keep_max_freq == -1: # Go to max
+                idx = np.array(np.where(xf < -keep_min_freq)).flatten()                                # left of DC                           # right of DC
+            else:
+                idx = np.array(np.where((-keep_max_freq < xf) & (xf < -keep_min_freq))).flatten()      # left of DC
+        else:
+            print("'side' is not a valid argument. It should be 'left', 'right', or 'both'.")
+            return
+        
+        # Define the box filter
+        box_filter = np.zeros(len(yf), dtype=complex)
+        box_filter[idx] = 1
+        filtered_fourier_data = yf * box_filter
+
+        # Perform the inverse FFT
+        shifted_filtered_fourier_data = np.fft.ifftshift(filtered_fourier_data)
+        index_max_before_shift = np.argmax(np.abs(filtered_fourier_data))                               # Find the index of the maximum value before and after the shift
+        index_max_after_shift = np.argmax(np.abs(shifted_filtered_fourier_data))
+        shift_amount = index_max_after_shift - index_max_before_shift                                   # Calculate the shift amount
+        print("Shift amount: ", shift_amount)
+        filtered_y = np.fft.ifft(shifted_filtered_fourier_data)
+
+        # Plot the FFT results
+        if show_plots == True:
+            plt.figure(figsize=(8, 6))
+            plt.subplot(2, 1, 1)
+            plt.plot(x, y)
+            plt.title("Signal")
+            plt.subplot(2, 1, 2)
+            plt.plot(xf, yf, label = "Full fft") # Normalised
+            plt.title("FFT")
+            if fft_x_lim != None:
+                try:
+                    plt.xlim(fft_x_lim)  # Limit the x-axis
+                except:
+                    print("Not valid fft_x_lim.")
+            if fft_y_lim != None:
+                try:
+                    plt.ylim(fft_y_lim)  # Limit the y-axis
+                except:
+                    print("Not valid fft_y_lim.")
+            plt.xlabel("Fourier Domain")
+            plt.tight_layout()
+            plt.subplot(2, 1, 2)
+            if side == "both":
+                plt.plot(xf[idx_left], yf[idx_left], color='r', label = "Selected region")
+                plt.plot(xf[idx_right], yf[idx_right], color='r')   
+            elif side == "right":
+                plt.plot(xf[idx], yf[idx], color='r', label = "Selected region")
+            elif side == "left":
+                plt.plot(xf[idx], yf[idx], color='r', label = "Selected region")
+            plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+
+            # Plot the original data and the filtered data in the original domain
+            plt.figure(figsize=(8, 6))
+            plt.subplot(2, 1, 1)
+            plt.plot(x, y)
+            plt.title("Original Signal")
+            plt.subplot(2, 1, 2)
+            plt.plot(x, np.abs(filtered_y)**2, label="filtered_y")
+            # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
+            plt.title("Filtered Signal (ifft of selected region)")
+            plt.tight_layout()
+            plt.legend()
+            plt.show()
+        
+
+
+        # Extract phase and unwrap
+        final_ys = np.zeros(len(filtered_y))
+        for i in range(len(filtered_y)):
+            final_ys[i] = cmath.phase((filtered_y[i]))
+
+        final_ys = np.unwrap(final_ys)
+        # final_ys = final_ys - final_ys[0]
+        print(final_ys)
+        print("MIN: ", min(final_ys))
+        print("MAX: ", max(final_ys))
+       
+        # Subtract phase from air
+        final_ys = final_ys - x*tau
+       
+        print("Final ys:")
+        print(final_ys)
+        
+        # Perform the fit
+        coefficients = np.polyfit(x, final_ys, order)
+
+        if show_plots == True:
+            plt.plot(x, final_ys)
+            plt.title("$\Phi(\omega)$")
+            plt.xlabel("$\omega$")
+            plt.ylabel("Intensity")
+            plt.plot(x, np.polyval(coefficients, x), color='r', linestyle='--', label="Extracted phase")
+            # plt.plot(x, -1.95698265e-05*x**3 +   6.79351537e-02*x**2 -7.89563528e+01*x +3.04750604e+04,label="Original simulated phase", color='orange', linestyle = '-.')
+            
+            plt.legend()
+            plt.show()
+            # plt.xlim([np.real(x[np.nonzero(filtered_y)[0][0]]), np.real(x[np.nonzero(filtered_y)[0][-1]])])
+        return [x, coefficients]
+    
+    def MakeDeltaPhiLambda(coefficients):
+        '''
+        Makes the phase a lambda function so that it can be used in subsequent functions in this class.
+        
+
+        Parameters
+        -------
+        coefficients ([float]): Coefficients from the output of the 'DeltaPhiRetrievalProcedure'. 
+        
+
+        Returns
+        -------
+        Lambda function for delta phi.
+        '''
+        import sympy as sp
+        return lambda var: np.poly1d(coefficients)(var)
+    
+    # GIVEN x IS IN WAVELENGTHS
+    
+    def ObtainBetaFromPhi(self, phi, length):
+        '''
+        Obtains beta as a function of omega from delta phi.
+        
+
+        Parameters
+        -------
+        phi (lambda): Lambda function for phi.
+        length (float): Length of the fibre.
+        
+
+        Returns
+        -------
+        Beta as a function of omega, as a lambda function. 
+        '''
+        return lambda var: phi(var) / length
+
+        
+    def V_g(self, beta):                                      # Input beta as a function of wavelength
+        '''
+        Obtains the group velocity, v_g, as a function of wavelength from beta (function of omega).
+        v_g := (dBeta / dOmega) ^ (-1)
+        
+
+        Parameters
+        -------
+        beta (omega): Lambda function for beta, in terms of omega.
+        
+
+        Returns
+        -------
+        Lambda function for group velocity as a function of omega, as a lambda function. 
+        ''' 
+        x = sp.symbols('x')
+        expr = beta(x)
+        beta_1 = diff(expr, x)                                          # Perform differentiation with respect to omega
+        return lambda vars: [1 / beta_1.subs(x, var) for var in vars]   # Invert and return
+
+    def DBeta_dOmega(self, beta):
+        '''
+        Performs the first derivative of beta (inputted as a lambda funciton of omegas) with respect to omega.
+        This is otherwise known as beta_1.
+
+        Parameters
+        -------
+        beta (lambda): Lambda function for beta, in terms of omega.
+        
+
+        Returns
+        -------
+        Lambda function for first derivative of beta wrt omega, otherwise known as beta_1.
+        '''
+        x = sp.symbols('x')
+        expr = beta(x)
+        beta_1 = diff(expr, x)                          # Perform differentiation with respect to wavelength
+        return lambda var: beta_1.subs(x, var)          
+
+    def GVD(self, beta):                          # Input beta as a function on wavelength
+        '''
+        Calculates the Group Velocity Dispersion (GVD) otherwise known as beta_2.
+        GVD := d^2 Beta / d Omega^2
+
+        Parameters
+        -------
+        beta (omega): Lambda function for beta, in terms of omega.
+        
+
+        Returns
+        -------
+        A lambda function for the group velocity dispersion.
+        '''
+        # Need to compute first and second derivative of beta wrt omega:
+        from sympy import diff
+        import sympy as sp    
+        x = sp.symbols('x')
+        expr = beta(x)
+        d2Beta_dOmega2 = diff(expr, x, 2)           # Second derivative wrt omega
+
+        return lambda vars: [d2Beta_dOmega2.subs(x, var) for var in vars]
+
+    def Big_D(self, beta): # Input beta as a function of omega
+        '''
+        Performs the second derivative of beta (inputted as a lambda function) wrt omega and then multiplied by scaling factor to get D.
+        D := d2Beta / (dLambda * dOmega)
+        D := - w**2 / (2pic) * GVD
+
+        Parameters
+        -------
+        beta (omega): Lambda function for beta, in terms of omega.
+        
+
+        Returns
+        -------
+        D as a lambda function.
+        '''
+        # Need to compute first and second derivative of beta wrt omega:
+        x = sp.symbols('x')
+        expr = beta(x)
+        beta_2 = diff(expr, x, 2)           # Second derivative wrt omega
+
+        # Need to compute dLambda_dOmega and d2Lambda_dLambdadOmega:
+        #dLambda_dOmega = - x**2 / (2 * np.pi * self.c)
+        #d2Lambda_dLambdadOmega = - x / (np.pi * self.c)
+
+        D = - (x**2) / (2 * np.pi * self.c) * beta_2
+        return lambda vars: [D.subs(x, var) for var in vars]
+
+    def Obtain_n(self, beta):
+        '''
+        Obtains the effective refractive index from beta, inputted as a lambda function.
+        n := beta1 * c
+        
+        Parameters
+        -------
+        beta (lambda): Lambda function for beta, in terms of omega.
+        
+        Returns
+        -------
+        The refractive index as a lambda function.
+        '''
+        return lambda vars: [beta(var) * self.c for var in vars]
+        # return lambda vars: [beta(var) * self.c / var for var in vars]
