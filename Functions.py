@@ -386,6 +386,14 @@ class SI_Functions_Omega:
     def __init__(self, c = 3e17): # Default is in nm/s, assuming that the class is used with wavelengths in nm.
         self.c = c
 
+    def ConvertWavelengthSpectraToOmega(self, wavelengths, intensity):
+        import scipy.interpolate as interpolate
+        omegas = 2 * np.pi * self.c / wavelengths                                          # Frequency in rad/s
+        x_grid = np.linspace(min(omegas), max(omegas), len(omegas))                    # Adjust the number of points as needed        
+        linear_interp = interpolate.interp1d(omegas, intensity, kind='linear')       # Perform linear interpolation
+        y_interp = linear_interp(x_grid) 
+        return [x_grid, y_interp] 
+    
     def _groundAndNormalise(self, y_data):
         y_data = y_data - min(y_data)
         return (y_data - min(y_data))/ max(y_data - min(y_data))
