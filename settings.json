@@ -1,0 +1,23 @@
+{
+  "OSA_file_skip_rows": 40,
+  "OSA_file_header": null,
+  "OSA_file_is_log": true,
+  "OSA_file_wavelength_col_index": 0,
+  "OSA_file_intensity_header_name": 0,
+  "OSA_file_keep_min_wavelength": 1050.0,
+  "OSA_file_keep_max_wavelength": 1300.0,
+  "keep_min_freq": 0.25,
+  "keep_max_freq": -1,
+  "side": "right",
+  "show_plots": true,
+  "fft_x_lim": [
+    -0.05,
+    0.05
+  ],
+  "fft_y_lim": [
+    -1,
+    10
+  ],
+  "hanning": false,
+  "normalise": false
+}
