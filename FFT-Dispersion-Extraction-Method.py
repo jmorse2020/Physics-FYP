@@ -95,55 +95,90 @@ def count_files_in_directory(directory_path):
         display_text(f"An unexpected error occurred: {e}", color='red')
         return -1
 
-def verify_and_read_OSA_files_from_directory(save_outputs_path, settings, save_filename = ""):
+def verify_and_read_OSA_files_from_directory(save_outputs_path, settings, save_filename=""):
+    file_number = 3 # Remove later
     ref_count = 0
     fib_count = 0
     int_count = 0
     csv_count, csv_files = count_csv_files(save_outputs_path)
-    if csv_count != 3:
+    if csv_count not in [1,3]:
         display_text(f"CSV Count: {count_csv_files(save_outputs_path)}", color='red')
         return False
-    for file in csv_files:
-        if os.path.isfile(os.path.join(save_outputs_path, file)):
-            file_path = os.path.join(save_outputs_path, file)
-            if file.lower().__contains__("ref") and ref_count == 0: 
-                print(file_path)
-                [reference_wavelengths, reference_intensity] = read_OSA_trace(file_path, settings)
-                reference_intensity = np.log10(reference_intensity)
-            elif file.lower().__contains__("fib") and fib_count == 0:
-                [fibre_wavelengths, fibre_intensity] = read_OSA_trace(file_path, settings)
-                fibre_intensity = np.log10(fibre_intensity)
-            elif file.lower().__contains__("int") and int_count == 0:
+    if file_number == 3:
+        for file in csv_files:
+            if os.path.isfile(os.path.join(save_outputs_path, file)):
+                file_path = os.path.join(save_outputs_path, file)
+                if file.lower().__contains__("ref") and ref_count == 0: 
+                    print(file_path)
+                    [reference_wavelengths, reference_intensity] = read_OSA_trace(file_path, settings)
+                    reference_intensity = np.log10(reference_intensity)
+                elif file.lower().__contains__("fib") and fib_count == 0:
+                    [fibre_wavelengths, fibre_intensity] = read_OSA_trace(file_path, settings)
+                    fibre_intensity = np.log10(fibre_intensity)
+                elif file.lower().__contains__("int") and int_count == 0:
+                    [interference_wavelengths, interference_intensity] = read_OSA_trace(file_path, settings)
+                    interference_intensity = np.log10(interference_intensity)
+                else:
+                    display_text(f"File {file} unable to be read", color='red')
+                    return False
+        arrays_equal = np.array_equal(reference_wavelengths, fibre_wavelengths) and np.array_equal(fibre_wavelengths, interference_wavelengths)
+        if not arrays_equal:
+            display_text("Wavelength arrays of each trace are not equal. Attempting to proceed with reference trace wavelengths ...", color='red')
+        save_outputs_path = create_output_folder_with_foldername(save_outputs_path, save_filename)
+        output = restrict_OSA_trace_domain(reference_wavelengths, reference_intensity, fibre_intensity, interference_intensity, save_outputs_path)    
+        reference_wavelengths = output[0]
+        reference_intensity = output[1]
+        fibre_intensity = output[2]
+        interference_intensity = output[3]
+        scaled_interference_intensity = extract_scaled_interference_intensity(reference_intensity, fibre_intensity, interference_intensity)
+        plt.close()
+        plt.ion()
+        # *** UNDO THIS IF YOU WANT TO WORK OUT THE LOG(0) ERROR ... *** #
+        # if settings["OSA_file_is_log"]:
+        #     plt.plot(reference_wavelengths, np.log(scaled_interference_intensity), label = "Scaled interference", linewidth=0.8, color='green')
+        # else:
+        #     plt.plot(reference_wavelengths, scaled_interference_intensity, label = "Scaled interference", linewidth=0.8, color='green')
+        plt.plot(reference_wavelengths, scaled_interference_intensity, label = "Scaled interference", linewidth=0.8, color='green')
+        plt.xlabel("Wavelengths [nm]")
+        plt.ylabel("Intensity")
+        plt.savefig(os.path.join(save_outputs_path, "scaled_interference.png"), dpi = 1000)
+        # Save data
+        plt.show()
+        # display_text("Traces loaded successfully ...", color='green')
+        return [reference_wavelengths, scaled_interference_intensity, save_outputs_path]
+
+    else:
+        if os.path.isfile(os.path.join(save_outputs_path, csv_files)):
+            file_path = os.path.join(save_outputs_path, csv_files)
+            if file.lower().__contains__("int") and int_count == 0:
                 [interference_wavelengths, interference_intensity] = read_OSA_trace(file_path, settings)
                 interference_intensity = np.log10(interference_intensity)
             else:
                 display_text(f"File {file} unable to be read", color='red')
                 return False
-    arrays_equal = np.array_equal(reference_wavelengths, fibre_wavelengths) and np.array_equal(fibre_wavelengths, interference_wavelengths)
-    if not arrays_equal:
-        display_text("Wavelength arrays of each trace are not equal. Attempting to proceed with reference trace wavelengths ...", color='red')
-    save_outputs_path = create_output_folder_with_foldername(save_outputs_path, save_filename)
-    output = restrict_OSA_trace_domain(reference_wavelengths, reference_intensity, fibre_intensity, interference_intensity, save_outputs_path)    
-    reference_wavelengths = output[0]
-    reference_intensity = output[1]
-    fibre_intensity = output[2]
-    interference_intensity = output[3]
-    scaled_interference_intensity = extract_scaled_interference_intensity(reference_intensity, fibre_intensity, interference_intensity)
-    plt.close()
-    plt.ion()
-    # *** UNDO THIS IF YOU WANT TO WORK OUT THE LOG(0) ERROR ... *** #
-    # if settings["OSA_file_is_log"]:
-    #     plt.plot(reference_wavelengths, np.log(scaled_interference_intensity), label = "Scaled interference", linewidth=0.8, color='green')
-    # else:
-    #     plt.plot(reference_wavelengths, scaled_interference_intensity, label = "Scaled interference", linewidth=0.8, color='green')
-    plt.plot(reference_wavelengths, scaled_interference_intensity, label = "Scaled interference", linewidth=0.8, color='green')
-    plt.xlabel("Wavelengths [nm]")
-    plt.ylabel("Intensity")
-    plt.savefig(os.path.join(save_outputs_path, "scaled_interference.png"), dpi = 1000)
-    # Save data
-    plt.show()
-    # display_text("Traces loaded successfully ...", color='green')
-    return [reference_wavelengths, scaled_interference_intensity, save_outputs_path]
+        save_outputs_path = create_output_folder_with_foldername(save_outputs_path, save_filename)
+        output = restrict_OSA_trace_domain(reference_wavelengths, reference_intensity, fibre_intensity, interference_intensity, save_outputs_path)    
+        reference_wavelengths = output[0]
+        reference_intensity = output[1]
+        fibre_intensity = output[2]
+        interference_intensity = output[3]
+        scaled_interference_intensity = extract_scaled_interference_intensity(reference_intensity, fibre_intensity, interference_intensity)
+        plt.close()
+        plt.ion()
+        # *** UNDO THIS IF YOU WANT TO WORK OUT THE LOG(0) ERROR ... *** #
+        # if settings["OSA_file_is_log"]:
+        #     plt.plot(reference_wavelengths, np.log(scaled_interference_intensity), label = "Scaled interference", linewidth=0.8, color='green')
+        # else:
+        #     plt.plot(reference_wavelengths, scaled_interference_intensity, label = "Scaled interference", linewidth=0.8, color='green')
+        plt.plot(reference_wavelengths, scaled_interference_intensity, label = "Scaled interference", linewidth=0.8, color='green')
+        plt.xlabel("Wavelengths [nm]")
+        plt.ylabel("Intensity")
+        plt.savefig(os.path.join(save_outputs_path, "scaled_interference.png"), dpi = 1000)
+        # Save data
+        plt.show()
+        # display_text("Traces loaded successfully ...", color='green')
+        return [reference_wavelengths, scaled_interference_intensity, save_outputs_path]
+
 
 def get_valid_input(prompt, lower_limit, upper_limit):
     while True:
@@ -215,6 +250,8 @@ def restrict_OSA_trace_domain(reference_wavelengths, reference_intensity, fibre_
         else:
             display_text("Unrecognised input, please enter 'y' or 'n'.", color='red')
     return [reference_wavelengths, reference_intensity, fibre_intensity, interference_intensity]
+
+
 
 
 
@@ -363,8 +400,17 @@ def execute_option(option, settings):
         print("You selected option 2: Automated")
         input("You must have the three traces only in a folder. Each must contain the key 'ref', 'fibre', 'int' accordingly. Press return key to continue")
         while True:
+            while True:
+                file_number = input("Are you providing 1 file (interference trace) or 3 files (fiber, reference and interference traces)? ('1' / '3') ")
+                if int(file_number) in [1, 3]:
+                    break
+                else:
+                    display_text("Invalid input, enter '1' or '3'.", color='red')        
             save_outputs_path = input("Please enter the full path to directory containing 3 OSA traces: ")
-            interference_trace = verify_and_read_OSA_files_from_directory(save_outputs_path, settings)
+            if int(file_number) == 3:
+                interference_trace = verify_and_read_OSA_files_from_directory(save_outputs_path, settings)
+            else:
+                pass
             if is_valid_directory(save_outputs_path) and interference_trace is not False:
                 # create_output_folder_with_foldername(save_outputs_path, "")
                 reference_wavelengths = np.array(interference_trace[0])
